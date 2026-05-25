@@ -7,7 +7,6 @@ paths:
   checkpoint_relative: "checkpoint/xy_model"
 
 vision_caption:
-  # local: 本地 Qwen VL | openai_compatible: OpenAI 风格多模态对话（任意兼容网关）
   backend: "local"
   prompt_template: >-
     图中人物性别或身份为：{gender}。请以专业修图师角度，描述光影构图、色彩风格、人物动作、穿着打扮等，
