@@ -45,7 +45,7 @@ image_generation:
     aspect_ratio: "16:9"
     response_format: "base64"
     # 此处必须是「环境变量名」，例如 MINIMAX_API_KEY；不要把 sk-... 密钥写在这里
-    api_key_env: "sk-api-TIW4b13ytRKD9JRF-ynggIlV8B3jRJ6iBRMRm_3RMIV_AZJf-8oc3nJ-STwoNSQDae6OiF6_7JVyMvHAW4RWQ0gUuZ5j6zzB-7uaQoDWXZ3JWDlGDc4x5Hs"
+    api_key_env: ""
     # 可选：直接写密钥（不要提交 git）；优先使用上面环境变量
     # api_key: ""
     subject_reference_type: "character"
@@ -56,7 +56,7 @@ image_generation:
   doubao_ark:
     base_url: "https://ark.cn-beijing.volces.com/api/v3"
     api_key_env: "ARK_API_KEY"
-    api_key: "ark-9f0c1758-e7fc-49d2-96e4-0e2d4b5f3546-8be70"
+    api_key: ""
     model: "doubao-seedream-5-0-260128"
     size: "2K"
     response_format: "url"
