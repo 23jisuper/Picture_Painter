@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+dist/
+build/
+*.spec
+
+# 本地配置与密钥（勿提交）
+config.local.yaml
+.env
+.env.*
+
+# 运行时
+temp_uploads/
+*.log
+error_log.txt
+output_log.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# 模型权重体积大，默认不纳入版本库（本地自行下载）
+checkpoint/
+
+# 打包产物
+*.exe

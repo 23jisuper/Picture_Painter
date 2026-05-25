@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHROMA STUDIO | 图生文 · 文生图</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
+        :root {
+            --surface: rgba(255, 255, 255, 0.82);
+            --border: rgba(148, 163, 184, 0.35);
+            --accent: #4f46e5;
+            --accent-soft: rgba(79, 70, 229, 0.12);
+        }
+
+        body {
+            font-family: 'DM Sans', system-ui, sans-serif;
+            color: #0f172a;
+            min-height: 100vh;
+            background:
+                linear-gradient(165deg, #f1f5f9 0%, #e8eef9 40%, #f5f3ff 100%);
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 1.25rem;
+            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .panel-muted {
+            opacity: 0.52;
+            filter: grayscale(0.06);
+        }
+
+        .dropzone {
+            border: 2px dashed rgba(100, 116, 139, 0.35);
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .dropzone:hover:not(.dropzone-disabled) {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+        }
+        .dropzone-disabled {
+            pointer-events: none;
+            opacity: 0.55;
+        }
+
+        .step-badge {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.95rem;
+            flex-shrink: 0;
+            transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+        .step-badge--idle { background: #e2e8f0; color: #64748b; }
+        .step-badge--ready { background: #c7d2fe; color: #3730a3; }
+        .step-badge--active {
+            background: linear-gradient(135deg, #6366f1, #7c3aed);
+            color: #fff;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.25);
+            animation: pulse-soft 1.6s ease-in-out infinite;
+        }
+        .step-badge--done { background: #059669; color: #fff; }
+
+        @keyframes pulse-soft {
+            0%, 100% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2); }
+            50% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.12); }
+        }
+
+        .rail {
+            height: 3px;
+            border-radius: 9999px;
+            background: #e2e8f0;
+            flex: 1;
+            min-width: 2rem;
+            max-width: 5rem;
+            align-self: center;
+        }
+        .rail-fill { height: 100%; border-radius: 9999px; background: linear-gradient(90deg, #6366f1, #a855f7); transition: width 0.35s ease; }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: #fff;
+            font-weight: 600;
+            transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 28px rgba(79, 70, 229, 0.35);
+        }
+        .btn-secondary {
+            background: #0f172a;
+            color: #f8fafc;
+            font-weight: 600;
+        }
+        .btn-secondary:hover:not(:disabled) { background: #1e293b; }
+        .btn-ghost {
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.6);
+            font-weight: 600;
+            color: #334155;
+        }
+        .btn-ghost:hover:not(:disabled) { background: #fff; border-color: #cbd5e1; }
+
+        .scan-line {
+            position: absolute;
+            left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #6366f1, #c084fc, #22d3ee);
+            animation: scan 2.2s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes scan { 0% { top: 0; opacity: 1; } 100% { top: 100%; opacity: 0.35; } }
+
+        .btn-exit {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 100;
+            padding: 0.45rem 0.9rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #dc2626;
+            border: 1px solid rgba(220, 38, 38, 0.25);
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+        }
+        .btn-exit:hover { background: #dc2626; color: #fff; }
+
+        .count-chip {
+            min-width: 3rem;
+            padding: 0.65rem 0.5rem;
+            border-radius: 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 700;
+            border: 1px solid #e2e8f0;
+            background: rgba(255,255,255,0.85);
+            color: #475569;
+            transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
+        }
+        .count-chip:hover:not(:disabled) { border-color: #a5b4fc; color: #4338ca; }
+        .count-chip--active {
+            border-color: #6366f1;
+            background: #eef2ff;
+            color: #4338ca;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+        .count-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .modal-card {
+            width: 100%;
+            max-width: 26rem;
+            background: #fff;
+            border-radius: 1.25rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+            padding: 1.5rem;
+        }
+        .toast {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 150;
+            padding: 0.65rem 1.25rem;
+            border-radius: 9999px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #fff;
+            background: #0f172a;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25);
+            animation: toast-in 0.25s ease;
+        }
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+        .flow-step__dot {
+            width: 1.35rem;
+            height: 1.35rem;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e2e8f0;
+            color: #64748b;
+            font-size: 0.6rem;
+        }
+        .flow-step--active .flow-step__dot {
+            background: linear-gradient(135deg, #7c3aed, #6366f1);
+            color: #fff;
+        }
+        .flow-step--done .flow-step__dot { background: #059669; color: #fff; }
+        .flow-step--active { color: #5b21b6; }
+        .flow-step--done { color: #047857; }
+        .flow-rail { height: 2px; flex: 1; max-width: 2.5rem; background: #e2e8f0; border-radius: 9999px; }
+
+        .model-option {
+            width: 100%;
+            text-align: left;
+            padding: 0.85rem 1rem;
+            border-radius: 0.85rem;
+            border: 1px solid #e2e8f0;
+            background: rgba(255,255,255,0.9);
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .model-option:hover:not(:disabled) { border-color: #c7d2fe; }
+        .model-option--active {
+            border-color: #6366f1;
+            background: #eef2ff;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+        }
+
+        .gallery-main {
+            border-radius: 0.85rem;
+            overflow: hidden;
+            background: #f8fafc;
+            border: 1px solid #f1f5f9;
+            min-height: 200px;
+        }
+        .gallery-main img { width: 100%; max-height: 380px; object-fit: contain; }
+        .gallery-thumb {
+            flex: 0 0 auto;
+            width: 4.5rem;
+            height: 4.5rem;
+            border-radius: 0.65rem;
+            overflow: hidden;
+            border: 2px solid transparent;
+            opacity: 0.72;
+            transition: opacity 0.15s, border-color 0.15s, transform 0.1s;
+            cursor: pointer;
+            background: #f1f5f9;
+        }
+        .gallery-thumb:hover { opacity: 1; }
+        .gallery-thumb--active {
+            border-color: #6366f1;
+            opacity: 1;
+            transform: scale(1.03);
+        }
+        .gallery-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.65rem;
+        }
+        .gallery-grid__item {
+            border-radius: 0.65rem;
+            overflow: hidden;
+            border: 1px solid #f1f5f9;
+            background: #f8fafc;
+            cursor: pointer;
+        }
+        .gallery-grid__item img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+        .gallery-grid__item--active { outline: 2px solid #6366f1; outline-offset: 2px; }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="app" class="min-h-screen flex flex-col px-4 py-8 sm:px-6 lg:px-10">
+        <button type="button" @click="quitApp" class="btn-exit">
+            <i class="fa-solid fa-power-off mr-1.5"></i>退出
+        </button>
+
+        <header class="text-center mb-8 lg:mb-10 max-w-3xl mx-auto relative">
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">CHROMA STUDIO</h1>
+            <p class="text-sm text-slate-500 mt-2">图生文 → 文生图 · 两步流水线</p>
+            <button
+                type="button"
+                class="mt-4 inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full btn-ghost"
+                :disabled="step1Loading || step2Loading"
+                @click="openResetModal"
+            >
+                <i class="fa-solid fa-eraser"></i>清空画布
+            </button>
+        </header>
+
+        <!-- 步骤总览 -->
+        <section class="max-w-4xl mx-auto w-full mb-8 lg:mb-10" aria-label="流程步骤">
+            <div class="flex items-center justify-center gap-3 sm:gap-5">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span :class="badgeClass(1)" aria-hidden="true">{{ step1Done ? '✓' : '1' }}</span>
+                    <div class="min-w-0">
+                        <p class="text-sm font-bold text-slate-800 truncate">第一步 · 图生文</p>
+                        <p class="text-xs text-slate-500 leading-snug">图1 + 身份 → 描述</p>
+                    </div>
+                </div>
+                <div class="rail" aria-hidden="true"><div class="rail-fill" :style="{ width: step1Done ? '100%' : '0%' }"></div></div>
+                <div class="flex items-center gap-3 min-w-0">
+                    <span :class="badgeClass(2)" aria-hidden="true">{{ step2Done ? '✓' : '2' }}</span>
+                    <div class="min-w-0">
+                        <p class="text-sm font-bold text-slate-800 truncate">第二步 · 文生图</p>
+                        <p class="text-xs text-slate-500 leading-snug">描述 + 图2 → 新图</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 双列：输入区均匀 -->
+        <main class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 flex-1 items-stretch">
+            <!-- 第一步卡片 -->
+            <section
+                class="panel p-6 sm:p-7 flex flex-col min-h-[420px] lg:min-h-[460px]"
+                :class="{ 'ring-2 ring-indigo-400/50 ring-offset-2': step1Active }"
+            >
+                <div class="flex items-start justify-between gap-3 mb-5">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-indigo-600">Step 1</span>
+                        <h2 class="text-lg font-bold text-slate-900 mt-1">描述参考图</h2>
+                        <p class="text-xs text-slate-500 mt-1">上传图1，选择预设身份或自定义描述后生成修图向文案。</p>
+                    </div>
+                    <span v-if="file1" class="shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">已选图</span>
+                </div>
+
+                <div class="flex rounded-xl bg-slate-100/90 p-1 gap-1 mb-4">
+                    <button type="button" class="flex-1 py-2 rounded-lg text-xs font-bold transition"
+                        :class="step1PanelTab === 'task' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'"
+                        :disabled="step1Loading || step2Loading" @click="step1PanelTab = 'task'">任务</button>
+                    <button type="button" class="flex-1 py-2 rounded-lg text-xs font-bold transition"
+                        :class="step1PanelTab === 'model' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'"
+                        :disabled="step1Loading || step2Loading" @click="step1PanelTab = 'model'">模型</button>
+                </div>
+
+                <div v-show="step1PanelTab === 'model'" class="flex-1 space-y-2 mb-4 min-h-[200px]">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">图生文模型</p>
+                    <button v-for="m in captionModels" :key="m.id" type="button" class="model-option"
+                        :class="{ 'model-option--active': captionModelId === m.id }"
+                        :disabled="step1Loading || step2Loading" @click="captionModelId = m.id">
+                        <span class="text-sm font-semibold text-slate-800 block">{{ m.label }}</span>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">{{ m.backend }}{{ m.model ? ' · ' + m.model : '' }}</span>
+                    </button>
+                </div>
+
+                <div v-show="step1PanelTab === 'task'" class="flex flex-col flex-1 min-h-0">
+                <div
+                    class="dropzone relative flex-1 min-h-[220px] max-h-[340px] rounded-xl overflow-hidden cursor-pointer flex flex-col items-center justify-center"
+                    :class="{ 'dropzone-disabled': step1Loading || step2Loading }"
+                    @click="!(step1Loading || step2Loading) && $refs.fileInput1.click()"
+                >
+                    <input type="file" accept="image/*" ref="fileInput1" class="hidden" @change="handleFile1" :disabled="step1Loading || step2Loading">
+                    <template v-if="!previewUrl1">
+                        <i class="fa-solid fa-image text-3xl text-slate-300 mb-2"></i>
+                        <p class="text-sm font-semibold text-slate-600">点击上传图1</p>
+                        <p class="text-xs text-slate-400 mt-1">完整画面可见（不裁切预览）</p>
+                    </template>
+                    <template v-else>
+                        <div class="absolute inset-0 bg-slate-100 flex items-center justify-center p-2 sm:p-3">
+                            <img :src="previewUrl1" alt="图1预览" class="max-w-full max-h-full w-auto h-auto object-contain rounded-lg shadow-sm">
+                        </div>
+                        <div v-if="step1Loading" class="scan-line z-10"></div>
+                    </template>
+                </div>
+
+                <div class="mt-5 space-y-4">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">人物身份</p>
+                    <div class="flex rounded-xl bg-slate-100/90 p-1 gap-1">
+                        <button
+                            type="button"
+                            @click="setIdentityMode('preset')"
+                            :disabled="step1Loading || step2Loading"
+                            class="flex-1 py-2.5 rounded-lg text-xs font-bold transition disabled:opacity-40"
+                            :class="identityMode === 'preset' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                        >预设</button>
+                        <button
+                            type="button"
+                            @click="setIdentityMode('custom')"
+                            :disabled="step1Loading || step2Loading"
+                            class="flex-1 py-2.5 rounded-lg text-xs font-bold transition disabled:opacity-40"
+                            :class="identityMode === 'custom' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                        >自定义身份</button>
+                    </div>
+
+                    <div v-if="identityMode === 'preset'" class="space-y-3">
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">儿童</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button
+                                    v-for="g in childGenders"
+                                    :key="g"
+                                    type="button"
+                                    @click="selectPreset(g)"
+                                    :disabled="step1Loading || step2Loading"
+                                    class="py-3 rounded-xl text-sm font-semibold border transition"
+                                    :class="gender === g ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 disabled:opacity-40'"
+                                >{{ g }}</button>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">成人 / 通用</p>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button
+                                    v-for="g in adultGenders"
+                                    :key="g"
+                                    type="button"
+                                    @click="selectPreset(g)"
+                                    :disabled="step1Loading || step2Loading"
+                                    class="py-3 rounded-xl text-sm font-semibold border transition"
+                                    :class="gender === g ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 disabled:opacity-40'"
+                                >{{ g }}</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else>
+                        <label class="sr-only" for="custom-id">自定义人物身份</label>
+                        <textarea
+                            id="custom-id"
+                            v-model="customIdentity"
+                            rows="3"
+                            maxlength="500"
+                            :disabled="step1Loading || step2Loading"
+                            placeholder="例：穿汉服的亚裔女童约七岁；或：商务场合的中年男性"
+                            class="w-full text-sm rounded-xl border border-slate-200 bg-white/90 px-3 py-2.5 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-y min-h-[88px]"
+                        ></textarea>
+                        <p class="text-[10px] text-slate-400 mt-1.5">将原样写入图生文提示，建议简短准确。</p>
+                    </div>
+                </div>
+
+                <div class="mt-auto pt-6">
+                    <button
+                        type="button"
+                        class="w-full py-3.5 rounded-xl text-sm btn-primary disabled:opacity-35 disabled:cursor-not-allowed disabled:transform-none"
+                        :disabled="!canRunStep1"
+                        :title="step1DisabledReason"
+                        @click="runStep1"
+                    >
+                        <span v-if="step1Loading"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>正在生成描述…</span>
+                        <span v-else>运行第一步 · 生成描述</span>
+                    </button>
+                </div>
+                </div>
+            </section>
+
+            <!-- 第二步卡片 -->
+            <section
+                class="panel p-6 sm:p-7 flex flex-col min-h-[420px] lg:min-h-[460px]"
+                :class="[
+                    { 'ring-2 ring-violet-400/50 ring-offset-2': step2Active },
+                    { 'panel-muted': !step1Done && !step2Loading }
+                ]"
+            >
+                <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-violet-600">Step 2</span>
+                        <h2 class="text-lg font-bold text-slate-900 mt-1">主体参考与出图</h2>
+                        <p class="text-xs text-slate-500 mt-1">按顺序：上传参考图 → 确认生成配置 → 执行生图。</p>
+                    </div>
+                    <span
+                        v-if="!step1Done"
+                        class="shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-slate-200 text-slate-600"
+                    >待解锁</span>
+                    <span v-else-if="configConfirmed" class="shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">配置已确认</span>
+                    <span v-else-if="file2" class="shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-violet-100 text-violet-800">已选参考</span>
+                </div>
+
+                <div class="flex rounded-xl bg-slate-100/90 p-1 gap-1 mb-3">
+                    <button type="button" class="flex-1 py-2 rounded-lg text-xs font-bold transition"
+                        :class="step2PanelTab === 'workflow' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500'"
+                        :disabled="!step1Done || step2Loading" @click="step2PanelTab = 'workflow'">流程</button>
+                    <button type="button" class="flex-1 py-2 rounded-lg text-xs font-bold transition"
+                        :class="step2PanelTab === 'model' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500'"
+                        :disabled="!step1Done || step2Loading" @click="step2PanelTab = 'model'">模型</button>
+                </div>
+
+                <div v-show="step2PanelTab === 'model'" class="space-y-2 mb-4 min-h-[160px]">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">文生图模型</p>
+                    <button v-for="m in imageModels" :key="m.id" type="button" class="model-option"
+                        :class="{ 'model-option--active': imageModelId === m.id }"
+                        :disabled="step2Loading" @click="selectImageModel(m.id)">
+                        <span class="text-sm font-semibold text-slate-800 block">{{ m.label }}</span>
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">{{ m.backend }}{{ m.model ? ' · ' + m.model : '' }}</span>
+                    </button>
+                </div>
+
+                <div v-show="step2PanelTab === 'workflow'">
+                <div class="flex items-center justify-center gap-1 sm:gap-2 mb-4 px-1">
+                    <div class="flow-step" :class="flowStepClass('reference')"><span class="flow-step__dot">1</span><span>参考图</span></div>
+                    <div class="flow-rail" aria-hidden="true"></div>
+                    <div class="flow-step" :class="flowStepClass('config')"><span class="flow-step__dot">2</span><span>配置</span></div>
+                    <div class="flow-rail" aria-hidden="true"></div>
+                    <div class="flow-step" :class="flowStepClass('generate')"><span class="flow-step__dot">3</span><span>生成</span></div>
+                </div>
+
+                <div v-show="step2Phase === 'reference'">
+                <div
+                    class="dropzone relative flex-1 min-h-[220px] max-h-[340px] rounded-xl overflow-hidden flex flex-col items-center justify-center"
+                    :class="{ 'dropzone-disabled': !step1Done || step2Loading }"
+                    @click="step1Done && !step2Loading && $refs.fileInput2.click()"
+                >
+                    <input type="file" accept="image/*" ref="fileInput2" class="hidden" @change="handleFile2" :disabled="!step1Done || step2Loading">
+                    <template v-if="!previewUrl2">
+                        <i class="fa-solid fa-user text-3xl mb-2" :class="step1Done ? 'text-slate-300' : 'text-slate-200'"></i>
+                        <p class="text-sm font-semibold" :class="step1Done ? 'text-slate-600' : 'text-slate-400'">上传图2（主体参考）</p>
+                        <p v-if="!step1Done" class="text-xs text-slate-400 mt-2 text-center px-4">完成第一步后解锁此区域</p>
+                        <p v-else class="text-xs text-slate-400 mt-1 text-center px-2">预览完整显示，上传文件仍为原图</p>
+                    </template>
+                    <template v-else>
+                        <div class="absolute inset-0 bg-slate-100 flex items-center justify-center p-2 sm:p-3">
+                            <img :src="previewUrl2" alt="图2预览" class="max-w-full max-h-full w-auto h-auto object-contain rounded-lg shadow-sm">
+                        </div>
+                        <div v-if="step2Loading" class="scan-line z-10"></div>
+                        <button type="button"
+                            class="absolute top-2 right-2 z-20 text-[10px] font-bold px-2.5 py-1 rounded-lg bg-white/95 text-slate-600 border border-slate-200 shadow-sm hover:bg-white disabled:opacity-40"
+                            :disabled="step2Loading" @click.stop="clearReferenceImage"
+                        ><i class="fa-solid fa-xmark mr-1"></i>移除</button>
+                    </template>
+                </div>
+                <button v-if="file2 && step1Done" type="button"
+                    class="w-full mt-3 py-2.5 rounded-xl text-xs font-bold btn-ghost"
+                    :disabled="step2Loading" @click="goToConfigPhase"
+                >下一步：生成配置 <i class="fa-solid fa-arrow-right ml-1"></i></button>
+                </div>
+
+                <div v-show="step2Phase === 'config'" class="space-y-5 py-1 min-h-[220px]">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">生成图片数量</p>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button v-for="n in imageCountOptions" :key="'cnt-' + n" type="button" class="count-chip"
+                                :class="{ 'count-chip--active': imageCount === n }"
+                                :disabled="step2Loading" @click="onImageCountChange(n)"
+                            >{{ n }} 张</button>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-2">豆包 Seedream 使用组图模式；若张数不足将自动补量请求。</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">生成画幅比例</label>
+                        <select v-model="aspectRatio" :disabled="step2Loading"
+                            class="w-full text-sm font-semibold rounded-xl border border-slate-200 bg-white/90 px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200 disabled:opacity-50">
+                            <option v-for="opt in aspectRatioOptions" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
+                    </div>
+                    <div class="rounded-xl bg-violet-50/80 border border-violet-100 px-3 py-2.5 text-xs text-violet-900 leading-relaxed">
+                        <i class="fa-solid fa-circle-info mr-1 opacity-70"></i>
+                        将使用 <strong>{{ selectedImageModelLabel }}</strong> 生成 <strong>{{ imageCount }}</strong> 张 · {{ aspectRatio }}
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" class="flex-1 py-2.5 rounded-xl text-xs font-bold btn-ghost" :disabled="step2Loading" @click="backToReferencePhase">上一步</button>
+                        <button type="button" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-40"
+                            :disabled="step2Loading" @click="confirmConfig">确认配置</button>
+                    </div>
+                </div>
+                </div>
+
+                <div v-show="step2PanelTab === 'workflow'" class="mt-auto pt-6 space-y-2">
+                    <button
+                        type="button"
+                        class="w-full py-3.5 rounded-xl text-sm btn-secondary disabled:opacity-35 disabled:cursor-not-allowed"
+                        :disabled="!canRunStep2"
+                        :title="step2DisabledReason"
+                        @click="runStep2"
+                    >
+                        <span v-if="step2Loading"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>正在生成 {{ imageCount }} 张…</span>
+                        <span v-else-if="configConfirmed">运行第二步 · 生成 {{ imageCount }} 张图片</span>
+                        <span v-else>请先完成上方流程并确认配置</span>
+                    </button>
+                    <p v-if="step1Done && step2Phase === 'reference' && !file2" class="text-center text-xs text-amber-700 font-medium">请先上传图2，再进入生成配置</p>
+                    <p v-else-if="step1Done && step2Phase === 'config' && !configConfirmed" class="text-center text-xs text-amber-700 font-medium">请确认生成张数与比例后再执行生图</p>
+                </div>
+            </section>
+        </main>
+
+        <div v-if="errorMsg" class="max-w-7xl mx-auto w-full mt-6 px-0">
+            <p class="text-sm text-red-800 bg-red-50 border border-red-100 rounded-xl px-4 py-3 font-medium">{{ errorMsg }}</p>
+        </div>
+
+        <!-- 输出区：双列均匀 -->
+        <section class="max-w-7xl mx-auto w-full mt-8 lg:mt-10 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 pb-12">
+            <div class="panel p-6 sm:p-7 flex flex-col min-h-[280px] lg:min-h-[320px]">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-bold text-slate-800">第一步输出 · 描述</h3>
+                    <button
+                        type="button"
+                        class="text-xs font-semibold px-3 py-1.5 rounded-lg btn-ghost disabled:opacity-35"
+                        :disabled="!caption.trim()"
+                        @click="copyCaption"
+                    ><i :class="copied ? 'fa-check text-emerald-600' : 'fa-copy'" class="fa-regular mr-1"></i>{{ copied ? '已复制' : '复制' }}</button>
+                </div>
+                <div v-if="step1Loading" class="flex-1 flex flex-col justify-center gap-2 py-8">
+                    <div v-for="n in 5" :key="'sk'+n" class="h-2 rounded-full bg-slate-100 animate-pulse" :class="n === 5 ? 'w-2/3' : 'w-full'"></div>
+                </div>
+                <textarea
+                    v-else
+                    v-model="caption"
+                    rows="10"
+                    placeholder="完成第一步后，描述将显示在此；可在生成前手动微调。"
+                    class="flex-1 w-full min-h-[200px] text-sm leading-relaxed text-slate-700 rounded-xl border border-slate-200 bg-white/90 p-4 focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-y disabled:bg-slate-50"
+                    :disabled="step1Loading"
+                ></textarea>
+            </div>
+
+            <div class="panel p-6 sm:p-7 flex flex-col min-h-[280px] lg:min-h-[320px]">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-800">第二步输出 · 生成图</h3>
+                        <p v-if="generatedUrls.length" class="text-[10px] text-slate-400 mt-0.5">共 {{ generatedUrls.length }} 张 · 点击缩略图切换预览</p>
+                    </div>
+                    <div class="flex gap-2 flex-wrap justify-end">
+                        <button v-if="generatedUrls.length > 1" type="button"
+                            class="text-xs font-semibold px-3 py-1.5 rounded-lg btn-ghost"
+                            @click="galleryViewMode = galleryViewMode === 'focus' ? 'grid' : 'focus'"
+                        ><i class="fa-solid fa-table-cells mr-1"></i>{{ galleryViewMode === 'focus' ? '网格' : '聚焦' }}</button>
+                        <button type="button" class="text-xs font-semibold px-3 py-1.5 rounded-lg btn-ghost disabled:opacity-35"
+                            :disabled="!generatedB64.length" @click="downloadAll"
+                        ><i class="fa-solid fa-download mr-1"></i>全部下载</button>
+                    </div>
+                </div>
+                <div v-if="step2Loading" class="flex-1 flex flex-col justify-center gap-2 py-8">
+                    <div v-for="n in imageCount" :key="'g2sk'+n" class="h-2 rounded-full bg-slate-100 animate-pulse" :class="n === imageCount ? 'w-1/2' : 'w-full'"></div>
+                    <p class="text-center text-xs text-slate-400 mt-2">正在生成 {{ imageCount }} 张，请稍候…</p>
+                </div>
+                <div v-else-if="!generatedUrls.length" class="flex-1 flex items-center justify-center text-center text-sm text-slate-400 px-4">
+                    完成配置并运行第二步后，生成图将显示于此。
+                </div>
+                <div v-else-if="galleryViewMode === 'grid' || generatedUrls.length === 1" class="flex-1 overflow-y-auto max-h-[520px] pr-1">
+                    <div :class="generatedUrls.length > 1 ? 'gallery-grid' : ''">
+                        <div v-for="(u, idx) in generatedUrls" :key="'g-'+idx"
+                            class="gallery-grid__item relative"
+                            :class="{ 'gallery-grid__item--active': selectedGalleryIdx === idx }"
+                            @click="selectedGalleryIdx = idx"
+                        >
+                            <img :src="u" :alt="'生成图 ' + (idx+1)">
+                            <span class="absolute bottom-1 left-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/50 text-white">{{ idx + 1 }}</span>
+                        </div>
+                    </div>
+                    <div v-if="generatedUrls.length > 1" class="mt-3 flex justify-end">
+                        <button type="button" class="text-xs font-semibold text-indigo-600" @click="downloadOne(selectedGalleryIdx)">
+                            <i class="fa-solid fa-download mr-1"></i>下载当前选中
+                        </button>
+                    </div>
+                </div>
+                <div v-else class="flex-1 flex flex-col min-h-0 max-h-[520px]">
+                    <div class="gallery-main flex-1 flex items-center justify-center">
+                        <img :src="generatedUrls[selectedGalleryIdx]" :alt="'生成图 ' + (selectedGalleryIdx+1)">
+                    </div>
+                    <div class="flex gap-2 mt-3 overflow-x-auto pb-1">
+                        <button v-for="(u, idx) in generatedUrls" :key="'th-'+idx" type="button"
+                            class="gallery-thumb"
+                            :class="{ 'gallery-thumb--active': selectedGalleryIdx === idx }"
+                            @click="selectedGalleryIdx = idx"
+                        ><img :src="u" :alt="'缩略图 ' + (idx+1)"></button>
+                    </div>
+                    <div class="flex items-center justify-between mt-2 px-0.5">
+                        <span class="text-xs font-medium text-slate-500">第 {{ selectedGalleryIdx + 1 }} / {{ generatedUrls.length }} 张</span>
+                        <button type="button" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800" @click="downloadOne(selectedGalleryIdx)">
+                            <i class="fa-solid fa-download mr-1"></i>下载当前
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 清空确认弹窗 -->
+        <div v-if="showResetModal" class="modal-backdrop" @click.self="closeResetModal">
+            <div class="modal-card" role="dialog" aria-labelledby="reset-modal-title">
+                <h3 id="reset-modal-title" class="text-lg font-bold text-slate-900">清空画布</h3>
+                <p class="text-sm text-slate-500 mt-2 leading-relaxed">请选择要清除的内容。进行中的任务不会被中断。</p>
+                <ul class="mt-4 space-y-2 text-xs text-slate-600">
+                    <li class="flex items-start gap-2"><i class="fa-solid fa-image mt-0.5 text-slate-400"></i><span><strong>仅清空输出</strong>：描述文案与生成图片</span></li>
+                    <li class="flex items-start gap-2"><i class="fa-solid fa-rotate-left mt-0.5 text-slate-400"></i><span><strong>全部重新开始</strong>：上传的图片、身份、配置与全部输出</span></li>
+                </ul>
+                <div class="mt-6 flex flex-col gap-2">
+                    <button type="button" class="w-full py-2.5 rounded-xl text-sm font-semibold btn-ghost" @click="resetOutputsOnly">
+                        仅清空输出
+                    </button>
+                    <button type="button" class="w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700" @click="resetAllConfirmed">
+                        全部重新开始
+                    </button>
+                    <button type="button" class="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800" @click="closeResetModal">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="toastMsg" class="toast" role="status">{{ toastMsg }}</div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, watch } = Vue;
+        const childGenders = ['男童', '女童'];
+        const adultGenders = ['男', '女', '通用'];
+        const aspectRatioOptions = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'];
+        const imageCountOptions = [1, 2, 4, 8];
+
+        createApp({
+            setup() {
+                const file1 = ref(null);
+                const previewUrl1 = ref(null);
+                const file2 = ref(null);
+                const previewUrl2 = ref(null);
+                const identityMode = ref('preset');
+                const gender = ref(null);
+                const customIdentity = ref('');
+                const aspectRatio = ref('16:9');
+                const imageCount = ref(1);
+                const step1PanelTab = ref('task');
+                const step2PanelTab = ref('workflow');
+                const step2Phase = ref('reference');
+                const configConfirmed = ref(false);
+                const captionModels = ref([]);
+                const imageModels = ref([]);
+                const captionModelId = ref('');
+                const imageModelId = ref('');
+                const selectedGalleryIdx = ref(0);
+                const galleryViewMode = ref('focus');
+                const showResetModal = ref(false);
+                const toastMsg = ref('');
+                const caption = ref('');
+                const generatedUrls = ref([]);
+                const generatedB64 = ref([]);
+                const step1Loading = ref(false);
+                const step2Loading = ref(false);
+                const copied = ref(false);
+                const errorMsg = ref('');
+
+                const roleReady = computed(() => {
+                    if (identityMode.value === 'custom') return !!customIdentity.value.trim();
+                    return !!gender.value;
+                });
+
+                const effectiveGenderPayload = computed(() => {
+                    if (identityMode.value === 'custom') return customIdentity.value.trim();
+                    return gender.value || '';
+                });
+
+                const step1Done = computed(() => !!caption.value.trim());
+                const step2Done = computed(() => generatedUrls.value.length > 0);
+                const step1Active = computed(() => step1Loading.value || (!step1Done.value && file1.value && roleReady.value));
+                const step2Active = computed(() => step2Loading.value || (step1Done.value && file2.value && !step2Done.value));
+
+                const canRunStep1 = computed(() =>
+                    !!(file1.value && roleReady.value && !step1Loading.value && !step2Loading.value)
+                );
+                const selectedImageModelLabel = computed(() => {
+                    const m = imageModels.value.find((x) => x.id === imageModelId.value);
+                    return m ? m.label : '未选择';
+                });
+
+                const canRunStep2 = computed(() =>
+                    !!(
+                        step1Done.value &&
+                        file2.value &&
+                        configConfirmed.value &&
+                        step2Phase.value === 'config' &&
+                        !step1Loading.value &&
+                        !step2Loading.value
+                    )
+                );
+
+                const setIdentityMode = (mode) => {
+                    identityMode.value = mode;
+                    if (mode === 'custom') {
+                        gender.value = null;
+                    } else {
+                        customIdentity.value = '';
+                    }
+                };
+
+                const selectPreset = (g) => {
+                    identityMode.value = 'preset';
+                    gender.value = g;
+                };
+
+                const step1DisabledReason = computed(() => {
+                    if (step2Loading.value) return '第二步进行中，请稍候';
+                    if (step1Loading.value) return '正在生成描述';
+                    if (!file1.value) return '请先上传图1';
+                    if (identityMode.value === 'custom' && !customIdentity.value.trim()) return '请填写自定义人物身份';
+                    if (identityMode.value === 'preset' && !gender.value) return '请选择一项预设身份（含男童/女童）';
+                    return '';
+                });
+                const step2DisabledReason = computed(() => {
+                    if (step1Loading.value) return '第一步进行中';
+                    if (step2Loading.value) return '正在文生图';
+                    if (!step1Done.value) return '请先完成第一步并生成描述';
+                    if (!file2.value) return '请先上传图2作为主体参考';
+                    if (step2Phase.value !== 'config') return '请先完成参考图与生成配置流程';
+                    if (!configConfirmed.value) return '请点击「确认配置」后再生成';
+                    return '';
+                });
+
+                const flowStepClass = (phase) => {
+                    const order = { reference: 0, config: 1, generate: 2 };
+                    const cur = order[step2Phase.value] ?? 0;
+                    const p = order[phase] ?? 0;
+                    if (step2Done.value && phase === 'generate') return 'flow-step flow-step--done';
+                    if (configConfirmed.value && phase === 'config') return 'flow-step flow-step--done';
+                    if (file2.value && phase === 'reference') return 'flow-step flow-step--done';
+                    if (p === cur) return 'flow-step flow-step--active';
+                    if (p < cur) return 'flow-step flow-step--done';
+                    return 'flow-step';
+                };
+
+                const loadOptions = async () => {
+                    try {
+                        const res = await fetch('/api/options');
+                        const data = await res.json();
+                        captionModels.value = data.caption_models || [];
+                        imageModels.value = data.image_models || [];
+                        captionModelId.value = data.default_caption_model_id || (captionModels.value[0]?.id ?? '');
+                        imageModelId.value = data.default_image_model_id || (imageModels.value[0]?.id ?? '');
+                    } catch (e) {
+                        console.warn('加载模型列表失败', e);
+                    }
+                };
+
+                const goToConfigPhase = () => {
+                    if (!file2.value) {
+                        showToast('请先上传图2');
+                        return;
+                    }
+                    step2Phase.value = 'config';
+                    configConfirmed.value = false;
+                };
+
+                const backToReferencePhase = () => {
+                    step2Phase.value = 'reference';
+                    configConfirmed.value = false;
+                };
+
+                const confirmConfig = () => {
+                    configConfirmed.value = true;
+                    step2Phase.value = 'config';
+                    showToast('配置已确认，可以开始生成');
+                };
+
+                const onImageCountChange = (n) => {
+                    imageCount.value = n;
+                    configConfirmed.value = false;
+                };
+
+                const selectImageModel = (id) => {
+                    imageModelId.value = id;
+                    configConfirmed.value = false;
+                };
+
+                const badgeClass = (step) => {
+                    const loading = step === 1 ? step1Loading.value : step2Loading.value;
+                    const done = step === 1 ? step1Done.value : step2Done.value;
+                    const ready = step === 1
+                        ? !!(file1.value && roleReady.value)
+                        : !!(step1Done.value && file2.value);
+                    if (done) return 'step-badge step-badge--done';
+                    if (loading) return 'step-badge step-badge--active';
+                    if (ready || (step === 2 && step1Done.value)) return 'step-badge step-badge--ready';
+                    return 'step-badge step-badge--idle';
+                };
+
+                watch(generatedUrls, (urls) => {
+                    if (selectedGalleryIdx.value >= urls.length) {
+                        selectedGalleryIdx.value = 0;
+                    }
+                });
+
+                onMounted(() => {
+                    loadOptions();
+                    window.addEventListener('beforeunload', () => {
+                        navigator.sendBeacon('/shutdown');
+                    });
+                });
+
+                const quitApp = async () => {
+                    if (confirm('确定关闭并释放后台资源？')) {
+                        try {
+                            await fetch('/shutdown', { method: 'POST' });
+                            window.close();
+                            alert('若窗口未关闭，请手动关闭标签页。');
+                        } catch (e) {}
+                    }
+                };
+
+                const handleFile1 = (e) => {
+                    const f = e.target.files[0];
+                    if (f) {
+                        file1.value = f;
+                        if (previewUrl1.value) URL.revokeObjectURL(previewUrl1.value);
+                        previewUrl1.value = URL.createObjectURL(f);
+                        gender.value = null;
+                        customIdentity.value = '';
+                        identityMode.value = 'preset';
+                        caption.value = '';
+                        generatedUrls.value = [];
+                        generatedB64.value = [];
+                        errorMsg.value = '';
+                    }
+                };
+
+                const handleFile2 = (e) => {
+                    const f = e.target.files[0];
+                    if (f) {
+                        file2.value = f;
+                        if (previewUrl2.value) URL.revokeObjectURL(previewUrl2.value);
+                        previewUrl2.value = URL.createObjectURL(f);
+                        generatedUrls.value = [];
+                        generatedB64.value = [];
+                        errorMsg.value = '';
+                        step2Phase.value = 'reference';
+                        configConfirmed.value = false;
+                    }
+                };
+
+                let toastTimer = null;
+                const showToast = (msg) => {
+                    toastMsg.value = msg;
+                    if (toastTimer) clearTimeout(toastTimer);
+                    toastTimer = setTimeout(() => { toastMsg.value = ''; }, 2800);
+                };
+
+                const revokePreviews = () => {
+                    if (previewUrl1.value) URL.revokeObjectURL(previewUrl1.value);
+                    if (previewUrl2.value) URL.revokeObjectURL(previewUrl2.value);
+                };
+
+                const clearReferenceImage = () => {
+                    if (previewUrl2.value) URL.revokeObjectURL(previewUrl2.value);
+                    file2.value = null;
+                    previewUrl2.value = null;
+                    generatedUrls.value = [];
+                    generatedB64.value = [];
+                    errorMsg.value = '';
+                    step2Phase.value = 'reference';
+                    configConfirmed.value = false;
+                    showToast('已移除图2参考');
+                };
+
+                const resetOutputsOnly = () => {
+                    caption.value = '';
+                    generatedUrls.value = [];
+                    generatedB64.value = [];
+                    errorMsg.value = '';
+                    showResetModal.value = false;
+                    showToast('已清空描述与生成图');
+                };
+
+                const resetAllCore = () => {
+                    revokePreviews();
+                    file1.value = null;
+                    previewUrl1.value = null;
+                    file2.value = null;
+                    previewUrl2.value = null;
+                    gender.value = null;
+                    customIdentity.value = '';
+                    identityMode.value = 'preset';
+                    aspectRatio.value = '16:9';
+                    imageCount.value = 1;
+                    step1PanelTab.value = 'task';
+                    step2PanelTab.value = 'workflow';
+                    step2Phase.value = 'reference';
+                    configConfirmed.value = false;
+                    selectedGalleryIdx.value = 0;
+                    galleryViewMode.value = 'focus';
+                    caption.value = '';
+                    generatedUrls.value = [];
+                    generatedB64.value = [];
+                    step1Loading.value = false;
+                    step2Loading.value = false;
+                    errorMsg.value = '';
+                };
+
+                const openResetModal = () => {
+                    if (step1Loading.value || step2Loading.value) return;
+                    showResetModal.value = true;
+                };
+
+                const closeResetModal = () => {
+                    showResetModal.value = false;
+                };
+
+                const resetAllConfirmed = () => {
+                    resetAllCore();
+                    showResetModal.value = false;
+                    showToast('已清空全部内容，可重新开始');
+                };
+
+                const runStep1 = async () => {
+                    errorMsg.value = '';
+                    step1Loading.value = true;
+                    const formData = new FormData();
+                    formData.append('image', file1.value);
+                    formData.append('gender', effectiveGenderPayload.value);
+                    if (captionModelId.value) formData.append('caption_model_id', captionModelId.value);
+                    try {
+                        const res = await fetch('/describe', { method: 'POST', body: formData });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            caption.value = data.result || '';
+                        } else {
+                            caption.value = '';
+                            errorMsg.value = data.message || '图生文失败';
+                        }
+                    } catch (e) {
+                        caption.value = '';
+                        errorMsg.value = '网络或服务器异常';
+                    } finally {
+                        step1Loading.value = false;
+                    }
+                };
+
+                const runStep2 = async () => {
+                    errorMsg.value = '';
+                    step2Loading.value = true;
+                    generatedUrls.value = [];
+                    generatedB64.value = [];
+                    const formData = new FormData();
+                    formData.append('reference_image', file2.value);
+                    formData.append('caption', caption.value);
+                    formData.append('aspect_ratio', aspectRatio.value);
+                    formData.append('image_count', String(imageCount.value));
+                    if (imageModelId.value) formData.append('image_model_id', imageModelId.value);
+                    try {
+                        const res = await fetch('/generate_image', { method: 'POST', body: formData });
+                        const data = await res.json();
+                        if (data.status === 'success' && Array.isArray(data.images_base64)) {
+                            generatedB64.value = data.images_base64;
+                            generatedUrls.value = data.images_base64.map((b) => 'data:image/jpeg;base64,' + b);
+                            selectedGalleryIdx.value = 0;
+                            galleryViewMode.value = data.images_base64.length > 1 ? 'focus' : 'grid';
+                        } else {
+                            errorMsg.value = data.message || '文生图失败';
+                        }
+                    } catch (e) {
+                        errorMsg.value = '网络或服务器异常';
+                    } finally {
+                        step2Loading.value = false;
+                    }
+                };
+
+                const copyCaption = () => {
+                    navigator.clipboard.writeText(caption.value);
+                    copied.value = true;
+                    setTimeout(() => { copied.value = false; }, 2000);
+                };
+
+                const downloadOne = (idx) => {
+                    const b64 = generatedB64.value[idx];
+                    if (!b64) return;
+                    const a = document.createElement('a');
+                    a.href = 'data:image/jpeg;base64,' + b64;
+                    a.download = `chroma-step2-${idx + 1}.jpeg`;
+                    a.click();
+                };
+
+                const downloadAll = () => {
+                    generatedB64.value.forEach((_, i) => {
+                        setTimeout(() => downloadOne(i), i * 400);
+                    });
+                };
+
+                return {
+                    childGenders,
+                    adultGenders,
+                    aspectRatioOptions,
+                    imageCountOptions,
+                    file1, previewUrl1, file2, previewUrl2,
+                    identityMode, gender, customIdentity, aspectRatio,
+                    imageCount, step1PanelTab, step2PanelTab, step2Phase, configConfirmed,
+                    captionModels, imageModels, captionModelId, imageModelId,
+                    selectedGalleryIdx, galleryViewMode, selectedImageModelLabel,
+                    showResetModal, toastMsg,
+                    caption,
+                    generatedUrls, generatedB64,
+                    step1Loading, step2Loading, copied, errorMsg,
+                    step1Done, step2Done, step1Active, step2Active,
+                    roleReady, effectiveGenderPayload,
+                    canRunStep1, canRunStep2,
+                    step1DisabledReason, step2DisabledReason,
+                    badgeClass,
+                    setIdentityMode, selectPreset,
+                    handleFile1, handleFile2,
+                    clearReferenceImage, flowStepClass,
+                    goToConfigPhase, backToReferencePhase, confirmConfig,
+                    onImageCountChange, selectImageModel,
+                    openResetModal, closeResetModal,
+                    resetOutputsOnly, resetAllConfirmed,
+                    runStep1, runStep2,
+                    copyCaption, downloadOne, downloadAll, quitApp,
+                };
+            },
+        }).mount('#app');
+    </script>
+</body>
+</html>

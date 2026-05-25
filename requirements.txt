@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+torch
+transformers
+requests
+openai>=1.54.0
+PyYAML
+qwen-vl-utils
+accelerate
+safetensors

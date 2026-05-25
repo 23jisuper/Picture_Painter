@@ -1,0 +1,90 @@
+# 复制为 config.local.yaml 修改，或通过环境变量 PICTURE_PAINTER_CONFIG 指向自定义路径
+
+server:
+  host: "127.0.0.1"
+  port: 8000
+  upload_dir: "temp_uploads"
+
+paths:
+  # 相对项目根（开发）或发布根目录（frozen 下为 exe 上两级目录）
+  checkpoint_relative: "checkpoint/xy_model"
+
+vision_caption:
+  # local: 本地 Qwen VL | openai_compatible: OpenAI 风格多模态对话（任意兼容网关）
+  backend: "local"
+  prompt_template: >-
+    图中人物性别或身份为：{gender}。请以专业修图师角度，描述光影构图、色彩风格、人物动作、穿着打扮等，
+    综合前面描述生成修图提示词，提示词不针对人物，用户可以直接用生成的提示词进行修图。
+    重点是给出修图提示词，不要重复输出。
+  local:
+    min_pixels: 200704
+    max_pixels: 401408
+    max_new_tokens: 512
+  openai_compatible:
+    base_url: "https://api.openai.com/v1"
+    model: "gpt-4o-mini"
+    api_key_env: "OPENAI_API_KEY"
+    max_tokens: 1024
+  # 前端「模型」Tab 可选项（id 唯一；backend 为 local | openai_compatible）
+  model_catalog:
+    - id: local_qwen
+      label: 本地 Qwen VL
+      backend: local
+    - id: openai_gpt4o
+      label: GPT-4o Mini（API）
+      backend: openai_compatible
+      model: gpt-4o-mini
+
+
+image_generation:
+  # minimax_api | doubao_ark | none（none 时第二步不可用）
+  backend: "doubao_ark"
+  minimax:
+    url: "https://api.minimaxi.com/v1/image_generation"
+    model: "image-01-live"
+    aspect_ratio: "16:9"
+    response_format: "base64"
+    # 此处必须是「环境变量名」，例如 MINIMAX_API_KEY；不要把 sk-... 密钥写在这里
+    api_key_env: "sk-api-TIW4b13ytRKD9JRF-ynggIlV8B3jRJ6iBRMRm_3RMIV_AZJf-8oc3nJ-STwoNSQDae6OiF6_7JVyMvHAW4RWQ0gUuZ5j6zzB-7uaQoDWXZ3JWDlGDc4x5Hs"
+    # 可选：直接写密钥（不要提交 git）；优先使用上面环境变量
+    # api_key: ""
+    subject_reference_type: "character"
+    # data_uri: 将上传的参考图编码为 data:image/...;base64,...（若接口不支持可改为自建图床 URL）
+    reference_image_encoding: "data_uri"
+
+  # 火山方舟豆包图像（OpenAI SDK 兼容，参见官方 Seedream 文档）
+  doubao_ark:
+    base_url: "https://ark.cn-beijing.volces.com/api/v3"
+    api_key_env: "ARK_API_KEY"
+    api_key: "ark-9f0c1758-e7fc-49d2-96e4-0e2d4b5f3546-8be70"
+    model: "doubao-seedream-5-0-260128"
+    size: "2K"
+    response_format: "url"
+    watermark: False
+    send_reference_image: true
+    reference_image_encoding: "data_uri"
+    # 透传给 images.generate 的 extra_body（会与 image、watermark 合并）
+    extra_body: {}
+  # 前端「模型」Tab 可选项（backend 为 doubao_ark | minimax_api）
+  model_catalog:
+    - id: doubao_seedream_5
+      label: 豆包 Seedream 5.0
+      backend: doubao_ark
+      model: doubao-seedream-5-0-260128
+    - id: doubao_seedream_4
+      label: 豆包 Seedream 4.0
+      backend: doubao_ark
+      model: doubao-seedream-4-0-250828
+    - id: minimax_live
+      label: MiniMax image-01-live
+      backend: minimax_api
+      model: image-01-live
+
+prompt_composition:
+  # {caption} 为图1生成的风格/场景描述；subject_reference 为图2，须锁死面部身份
+  image_gen_user_template: >-
+    {caption}
+    以上为第一幅参考图的光影、色彩与修图意图说明。第二幅参考图提供「人物主体」：生成时必须严格保留
+    同一张脸——五官比例、脸型轮廓、眉眼鼻唇的形状与相对位置、肤色与年龄感应与参考图高度一致，
+    禁止换脸或生成另一人；仅可在发型、妆容浓淡、表情微变、服饰与背景上做符合上文描述的调整。
+    整体构图与氛围呼应上文，但人物身份识别以第二幅参考图的面部为准，优先保真面部。
