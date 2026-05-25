@@ -4,7 +4,6 @@ server:
   upload_dir: "temp_uploads"
 
 paths:
-  # 相对项目根（开发）或发布根目录（frozen 下为 exe 上两级目录）
   checkpoint_relative: "checkpoint/xy_model"
 
 vision_caption:
@@ -42,7 +41,6 @@ image_generation:
     aspect_ratio: "16:9"
     response_format: "base64"
     api_key_env: "MINIMAX_API_KEY"
-    # 👇 模板里的 key 必须留空！
     api_key: ""
     subject_reference_type: "character"
     reference_image_encoding: "data_uri"
@@ -50,7 +48,6 @@ image_generation:
   doubao_ark:
     base_url: "https://ark.cn-beijing.volces.com/api/v3"
     api_key_env: "ARK_API_KEY"
-    # 👇 模板里的 key 必须留空！
     api_key: ""
     model: "doubao-seedream-5-0-260128"
     size: "2K"
